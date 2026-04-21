@@ -1,9 +1,8 @@
+authlib
 fastapi
-bcrypt<4.1
 httpx
 itsdangerous
 jinja2
-passlib[bcrypt]
 pytest
 python-multipart
 uvicorn[standard]

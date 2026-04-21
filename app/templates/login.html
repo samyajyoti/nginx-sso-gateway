@@ -39,25 +39,8 @@
       line-height: 1.5;
     }
 
-    label {
-      display: block;
-      margin-top: 1rem;
-      margin-bottom: 0.4rem;
-      font-weight: 600;
-    }
-
-    input {
-      box-sizing: border-box;
-      width: 100%;
-      padding: 0.85rem 0.95rem;
-      border-radius: 10px;
-      border: 1px solid #374151;
-      background: #0f172a;
-      color: inherit;
-    }
-
-    button,
-    .button-link {
+    .button-link,
+    button {
       margin-top: 1.25rem;
       width: 100%;
       padding: 0.9rem 1rem;
@@ -74,7 +57,7 @@
       box-sizing: border-box;
     }
 
-    .button-link {
+    .button-secondary {
       background: transparent;
       border: 1px solid #475569;
       margin-top: 0.75rem;
@@ -105,7 +88,7 @@
 <body>
   <main class="card">
     <h1>Wrtual SSO</h1>
-    <p>Sign in once to access nginx-protected apps across <strong>.wrtual.in</strong>.</p>
+    <p>Sign in once with your Google account to access nginx-protected apps under <strong>.wrtual.in</strong>.</p>
     <p class="small">
       Allowed email domains:
       {% for domain in allowed_domains %}
@@ -113,28 +96,20 @@
       {% endfor %}
     </p>
 
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+
     {% if email %}
       <div class="session">Signed in as <strong>{{ email }}</strong>.</div>
-      <a class="button-link" href="{{ next_url }}">Continue</a>
+      <a class="button-link button-secondary" href="{{ next_url or '/' }}">Continue</a>
       <form action="/logout" method="get">
-        <button type="submit">Sign out</button>
+        <button type="submit" class="button-secondary">Sign out</button>
       </form>
     {% else %}
-      {% if error %}
-        <div class="error">{{ error }}</div>
-      {% endif %}
-
-      <form action="/login" method="post">
-        <input type="hidden" name="next" value="{{ next_url }}">
-
-        <label for="email">Email</label>
-        <input id="email" type="email" name="email" placeholder="user@datacultr.com" value="{{ email or '' }}" required autocomplete="username">
-
-        <label for="password">Password</label>
-        <input id="password" type="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
-
-        <button type="submit">Sign in</button>
-      </form>
+      <a class="button-link" href="/auth/google/start{% if next_url %}?next={{ next_url|urlencode }}{% endif %}">
+        Sign in with Google
+      </a>
     {% endif %}
   </main>
 </body>
