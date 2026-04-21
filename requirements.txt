@@ -1,0 +1,7 @@
+fastapi
+httpx
+jinja2
+passlib[bcrypt]
+pytest
+python-multipart
+uvicorn[standard]
