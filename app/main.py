@@ -46,8 +46,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if email:
             target = sanitize_next_url(next_url, settings.cookie_domain, settings.default_redirect_url)
             return templates.TemplateResponse(
-                "login.html",
-                {
+                request=request,
+                name="login.html",
+                context={
                     "request": request,
                     "email": email,
                     "error": None,
@@ -66,8 +67,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
 
         return templates.TemplateResponse(
-            "login.html",
-            {
+            request=request,
+            name="login.html",
+            context={
                 "request": request,
                 "email": None,
                 "error": None,
@@ -87,8 +89,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         is_valid, error_message = validate_credentials(normalized_email, password, settings)
         if not is_valid:
             return templates.TemplateResponse(
-                "login.html",
-                {
+                request=request,
+                name="login.html",
+                context={
                     "request": request,
                     "email": normalized_email,
                     "error": error_message,
