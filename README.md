@@ -106,6 +106,58 @@ See:
 - `deploy/nginx/auth-gateway.conf`
 - `deploy/nginx/protected-app.conf`
 
+## Adding a New Protected App
+
+To bring an existing nginx-protected app under SSO, replace its `auth_basic` rules with `auth_request` and add the helper locations below in the same `server` block.
+
+Replace each protected location like this:
+
+```nginx
+location /admin/ {
+    auth_request /_sso_auth;
+    auth_request_set $auth_email $upstream_http_x_authenticated_email;
+    auth_request_set $auth_user $upstream_http_x_authenticated_user;
+    error_page 401 = @sso_login;
+
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Authenticated-Email $auth_email;
+    proxy_set_header X-Authenticated-User $auth_user;
+
+    # Keep your existing upstream / proxy_pass / index / try_files here.
+    proxy_pass http://your_upstream;
+}
+```
+
+Add these helper locations once per `server` block:
+
+```nginx
+location = /_sso_auth {
+    internal;
+    proxy_pass https://test-sso.wrtual.in/auth/check;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header Cookie $http_cookie;
+    proxy_set_header X-Original-URI $request_uri;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location @sso_login {
+    return 302 https://test-sso.wrtual.in/login?next=$scheme://$host$request_uri;
+}
+```
+
+Important notes:
+
+- Remove the old `auth_basic` and `auth_basic_user_file` lines from the protected location.
+- `location = /_sso_auth` and `location @sso_login` must be declared once per `server` block, not per protected location.
+- If the SSO service runs on the same host as the protected app, you can use `proxy_pass http://127.0.0.1:8000/auth/check;` instead of the public URL.
+- After editing, validate and reload nginx:
+
+```bash
+nginx -t && systemctl reload nginx
+```
+
 ## Notes
 
 - This app uses signed cookie sessions, which is enough for a simple rollout.
