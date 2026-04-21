@@ -71,6 +71,26 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+## Docker Run
+
+This repo includes a `Dockerfile` and `docker-compose.yml` for running the SSO service in a container.
+
+1. Create a runtime env file:
+
+```bash
+cp .env.example .env
+```
+
+2. Update `.env`, especially `SSO_SECRET_KEY` and `SSO_USERS_JSON`.
+
+3. Build and start the container:
+
+```bash
+docker compose up --build
+```
+
+The app will be available on `http://localhost:8000`.
+
 ## How Nginx Uses It
 
 Each protected app should replace `auth_basic` with `auth_request`.

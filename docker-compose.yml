@@ -1,0 +1,12 @@
+services:
+  sso-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nginx-sso-gateway:latest
+    container_name: nginx-sso-gateway
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
