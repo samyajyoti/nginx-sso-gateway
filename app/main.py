@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request, status
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -40,7 +40,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/", response_class=HTMLResponse)
-    async def home(request: Request) -> HTMLResponse:
+    async def home(request: Request) -> Response:
         email = get_session_email(request.session)
         next_url = request.query_params.get("next")
         if email:
@@ -59,7 +59,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
     @app.get("/login", response_class=HTMLResponse)
-    async def login_page(request: Request, next: str | None = None) -> HTMLResponse | RedirectResponse:
+    async def login_page(request: Request, next: str | None = None) -> Response:
         email = get_session_email(request.session)
         target = sanitize_next_url(next, settings.cookie_domain, settings.default_redirect_url)
         if email:
@@ -82,7 +82,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         email: str = Form(...),
         password: str = Form(...),
         next: str = Form(""),
-    ) -> HTMLResponse | RedirectResponse:
+    ) -> Response:
         normalized_email = normalize_email(email)
         is_valid, error_message = validate_credentials(normalized_email, password, settings)
         if not is_valid:
@@ -105,7 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
 
     @app.get("/auth/check", response_class=PlainTextResponse)
-    async def auth_check(request: Request) -> PlainTextResponse:
+    async def auth_check(request: Request) -> Response:
         email = get_session_email(request.session)
         if not email or not is_allowed_email(email, settings.allowed_email_domains):
             request.session.clear()
@@ -117,7 +117,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return response
 
     @app.api_route("/logout", methods=["GET", "POST"])
-    async def logout(request: Request, next: str | None = None) -> RedirectResponse:
+    async def logout(request: Request, next: str | None = None) -> Response:
         request.session.clear()
         target = sanitize_next_url(next, settings.cookie_domain, "/login")
         return RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)

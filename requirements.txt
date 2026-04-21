@@ -1,5 +1,6 @@
 fastapi
 httpx
+itsdangerous
 jinja2
 passlib[bcrypt]
 pytest
