@@ -124,8 +124,9 @@ def _parse_app_access_simple(value: str) -> dict[str, tuple[str, ...]]:
     for line in value.splitlines():
         for chunk in line.split(";"):
             chunk = chunk.strip()
-            if chunk:
-                raw_entries.append(chunk)
+            if not chunk or chunk.startswith("#"):
+                continue
+            raw_entries.append(chunk)
 
     for entry in raw_entries:
         if "=" not in entry:
@@ -134,7 +135,7 @@ def _parse_app_access_simple(value: str) -> dict[str, tuple[str, ...]]:
             )
 
         host, _, users_part = entry.partition("=")
-        host = host.strip().lower()
+        host = _normalize_host(host)
         if not host:
             raise ValueError(f"SSO_APP_ACCESS entry {entry!r} is missing a host.")
 
@@ -148,6 +149,19 @@ def _parse_app_access_simple(value: str) -> dict[str, tuple[str, ...]]:
     return result
 
 
+def _normalize_host(value: str) -> str:
+    cleaned = value.strip().lower()
+    if not cleaned:
+        return ""
+
+    if "://" in cleaned:
+        cleaned = urlparse(cleaned).hostname or ""
+    else:
+        cleaned = cleaned.split("/", 1)[0]
+
+    return cleaned.strip().strip(".")
+
+
 def is_user_allowed_for_host(
     email: str,
     host: str | None,
@@ -156,10 +170,11 @@ def is_user_allowed_for_host(
     if not app_access:
         return True
 
-    if not host:
+    normalized_host = _normalize_host(host or "")
+    if not normalized_host:
         return False
 
-    allowed = app_access.get(host.strip().lower())
+    allowed = app_access.get(normalized_host)
     if allowed is None:
         return True
 
