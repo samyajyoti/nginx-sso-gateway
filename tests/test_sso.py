@@ -4,7 +4,7 @@ from app.auth import Settings
 from app.main import create_app
 
 
-def build_settings() -> Settings:
+def build_settings(app_access: dict[str, tuple[str, ...]] | None = None) -> Settings:
     return Settings(
         secret_key="test-secret",
         cookie_name="wrtual_sso",
@@ -19,6 +19,7 @@ def build_settings() -> Settings:
         google_client_secret="test-client-secret",
         google_redirect_uri="https://test-sso.wrtual.in/auth/google/callback",
         google_hosted_domain="datacultr.com",
+        app_access=app_access or {},
     )
 
 
@@ -27,8 +28,11 @@ def _seed_session(client: TestClient, email: str) -> None:
     assert response.status_code == 200
 
 
-def make_client_with_session(email: str | None) -> TestClient:
-    app = create_app(build_settings())
+def make_client_with_session(
+    email: str | None,
+    app_access: dict[str, tuple[str, ...]] | None = None,
+) -> TestClient:
+    app = create_app(build_settings(app_access=app_access))
 
     @app.get("/_seed_session")
     async def seed_session(request, email: str = "") -> dict[str, str]:
@@ -89,3 +93,55 @@ def test_login_page_renders_google_button() -> None:
 
     assert response.status_code == 200
     assert "Sign in with Google" in response.text
+
+
+def test_per_app_access_policy_allows_listed_user() -> None:
+    policy = {
+        "app1.wrtual.in": ("user1@datacultr.com",),
+        "app2.wrtual.in": ("user1@datacultr.com", "user2@datacultr.com"),
+    }
+    client = make_client_with_session("user1@datacultr.com", app_access=policy)
+
+    app1 = client.get(
+        "https://test-sso.wrtual.in/auth/check",
+        headers={"X-Forwarded-Host": "app1.wrtual.in"},
+    )
+    app2 = client.get(
+        "https://test-sso.wrtual.in/auth/check",
+        headers={"X-Forwarded-Host": "app2.wrtual.in"},
+    )
+
+    assert app1.status_code == 200
+    assert app2.status_code == 200
+
+
+def test_per_app_access_policy_blocks_unlisted_user() -> None:
+    policy = {
+        "app1.wrtual.in": ("user1@datacultr.com",),
+        "app2.wrtual.in": ("user1@datacultr.com", "user2@datacultr.com"),
+    }
+    client = make_client_with_session("user2@datacultr.com", app_access=policy)
+
+    blocked = client.get(
+        "https://test-sso.wrtual.in/auth/check",
+        headers={"X-Forwarded-Host": "app1.wrtual.in"},
+    )
+    allowed = client.get(
+        "https://test-sso.wrtual.in/auth/check",
+        headers={"X-Forwarded-Host": "app2.wrtual.in"},
+    )
+
+    assert blocked.status_code == 403
+    assert allowed.status_code == 200
+
+
+def test_per_app_access_policy_leaves_unlisted_hosts_open() -> None:
+    policy = {"app1.wrtual.in": ("user1@datacultr.com",)}
+    client = make_client_with_session("user2@datacultr.com", app_access=policy)
+
+    response = client.get(
+        "https://test-sso.wrtual.in/auth/check",
+        headers={"X-Forwarded-Host": "app3.wrtual.in"},
+    )
+
+    assert response.status_code == 200

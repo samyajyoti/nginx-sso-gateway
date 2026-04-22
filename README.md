@@ -54,6 +54,7 @@ Set these environment variables before running the service:
 - `GOOGLE_CLIENT_SECRET`: OAuth client secret from Google Cloud Console
 - `GOOGLE_REDIRECT_URI`: must match a Google "Authorized redirect URI", typically `https://<auth-host>/auth/google/callback`
 - `GOOGLE_HOSTED_DOMAIN`: optional, restricts the Google account picker to this domain (defaults to the only allowed email domain when there is just one)
+- `SSO_APP_ACCESS`: optional per-app access policy. Format `host=user1,user2; host2=user3`. Hosts not listed are open to any signed-in allowed-domain user. Use `*` as the user list to explicitly allow everyone for a host. (Advanced: `SSO_APP_ACCESS_JSON` is also accepted for programmatic configuration; see "Per-App Access Control".)
 
 A starter `.env.example` is provided.
 
@@ -157,6 +158,47 @@ Important notes:
 ```bash
 nginx -t && systemctl reload nginx
 ```
+
+## Per-App Access Control
+
+By default, any user from `SSO_ALLOWED_EMAIL_DOMAINS` who completes Google login can access every protected app. To restrict specific apps to specific users, set `SSO_APP_ACCESS` in `.env` using a simple `host=user1,user2; host2=user3` format:
+
+```env
+SSO_APP_ACCESS=app1.wrtual.in=user1@datacultr.com; app2.wrtual.in=user1@datacultr.com,user2@datacultr.com
+```
+
+That example means:
+
+- `app1.wrtual.in` is accessible only to `user1@datacultr.com`.
+- `app2.wrtual.in` is accessible to both `user1@datacultr.com` and `user2@datacultr.com`.
+- Any other host (for example `app3.wrtual.in`) is unrestricted as long as the user signed in with an allowed email domain.
+
+You can split entries across lines for readability:
+
+```env
+SSO_APP_ACCESS=app1.wrtual.in=user1@datacultr.com
+SSO_APP_ACCESS=app1.wrtual.in=user1@datacultr.com; app2.wrtual.in=user1@datacultr.com,user2@datacultr.com
+```
+
+(Note: env files only keep the last assignment of a key; if you need multiple lines, separate entries with `;` on a single line as in the first example.)
+
+To explicitly mark a host as open to every allowed-domain user, use `*`:
+
+```env
+SSO_APP_ACCESS=app3.wrtual.in=*
+```
+
+If a user signs in successfully but is not authorized for the requested host, the SSO service returns `403 Forbidden` instead of bouncing them back to the login page (which would otherwise loop).
+
+The host comparison uses the `X-Forwarded-Host` header that the protected app's nginx sends to `/auth/check`, so no app-side change is needed beyond the standard nginx snippet shown above.
+
+For programmatic configuration, the equivalent JSON form is also supported via `SSO_APP_ACCESS_JSON`:
+
+```env
+SSO_APP_ACCESS_JSON={"app1.wrtual.in":["user1@datacultr.com"],"app2.wrtual.in":["user1@datacultr.com","user2@datacultr.com"]}
+```
+
+`SSO_APP_ACCESS` takes precedence when both are set.
 
 ## Notes
 

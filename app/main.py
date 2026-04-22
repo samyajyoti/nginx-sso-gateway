@@ -10,6 +10,7 @@ from .auth import (
     Settings,
     get_session_email,
     is_allowed_email,
+    is_user_allowed_for_host,
     load_settings,
     normalize_email,
     sanitize_next_url,
@@ -161,6 +162,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if not email or not is_allowed_email(email, settings.allowed_email_domains):
             request.session.clear()
             return PlainTextResponse("Unauthorized", status_code=status.HTTP_401_UNAUTHORIZED)
+
+        protected_host = request.headers.get("X-Forwarded-Host") or request.headers.get("X-Original-Host")
+        if not is_user_allowed_for_host(email, protected_host, settings.app_access):
+            return PlainTextResponse(
+                f"Forbidden: {email} is not allowed to access {protected_host or 'this app'}.",
+                status_code=status.HTTP_403_FORBIDDEN,
+            )
 
         response = PlainTextResponse("OK", status_code=status.HTTP_200_OK)
         response.headers["X-Authenticated-Email"] = email
