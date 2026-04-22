@@ -118,7 +118,9 @@ location /admin/ {
     auth_request /_sso_auth;
     auth_request_set $auth_email $upstream_http_x_authenticated_email;
     auth_request_set $auth_user $upstream_http_x_authenticated_user;
+
     error_page 401 = @sso_login;
+    error_page 500 502 503 504 = @sso_unavailable;
 
     proxy_set_header Host $http_host;
     proxy_set_header X-Authenticated-Email $auth_email;
@@ -141,18 +143,28 @@ location = /_sso_auth {
     proxy_set_header X-Original-URI $request_uri;
     proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
+
+    proxy_connect_timeout 3s;
+    proxy_read_timeout 5s;
+    proxy_send_timeout 5s;
 }
 
 location @sso_login {
     return 302 https://test-sso.wrtual.in/login?next=$scheme://$host$request_uri;
+}
+
+location @sso_unavailable {
+    default_type text/html;
+    return 503 '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>SSO Unavailable</title></head><body style="font-family: Arial, sans-serif; text-align:center; padding:3rem;"><h1>SSO is temporarily unavailable</h1><p>Our single sign-on service is not reachable right now. Please try again in a moment.</p></body></html>';
 }
 ```
 
 Important notes:
 
 - Remove the old `auth_basic` and `auth_basic_user_file` lines from the protected location.
-- `location = /_sso_auth` and `location @sso_login` must be declared once per `server` block, not per protected location.
+- `location = /_sso_auth`, `location @sso_login`, and `location @sso_unavailable` must each be declared once per `server` block, not per protected location.
 - If the SSO service runs on the same host as the protected app, you can use `proxy_pass http://127.0.0.1:8000/auth/check;` instead of the public URL.
+- The `error_page 500 502 503 504 = @sso_unavailable;` line catches SSO outages, DNS failures, and timeouts so users see a friendly 503 page instead of nginx's default 500. Tune the timeouts inside `/_sso_auth` as needed.
 - After editing, validate and reload nginx:
 
 ```bash
